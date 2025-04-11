@@ -10,11 +10,13 @@ namespace generate_Grammar.Parser
   public class Parser
   {
     private string _input;
+    private string _initialInput;
     private int _position;
 
     public Parser(string input)
     {
-      _input = input;
+      _initialInput = input;
+      _input = clearelambdda();
       _position = 0;
     }
 
@@ -28,6 +30,26 @@ namespace generate_Grammar.Parser
       }
 
       return result;
+    }
+    private string clearelambdda()
+    {
+      StringBuilder result = new StringBuilder();
+      var lamdaIndex = _initialInput.IndexOf('λ');
+      if (lamdaIndex == -1)
+      {
+        return _initialInput;
+      }
+      else
+      {
+        for (global::System.Int32 i = 0; i < _initialInput.Length; i++)
+        {
+          if (!(i == lamdaIndex || i == lamdaIndex - 1 || i == lamdaIndex + 1))
+          {
+            result.Append(_initialInput[i]);
+          }
+        }
+      }
+      return result.ToString();
     }
 
     private Expression ParseExpression()
@@ -91,7 +113,7 @@ namespace generate_Grammar.Parser
         expr = ParseExpression();
         Expect(')'); // expect and consume ')'
       }
-      else if (char.IsLetter(Peek()))
+      else if (char.IsAsciiLetter(Peek()))
       {
         expr = new Symbol(ConsumeChar().ToString());
       }
@@ -117,9 +139,10 @@ namespace generate_Grammar.Parser
           {
             Consume(); // consume '+' as part of '^+' operator
             expr = new PostfixExpression(expr, "^+");
-          }else if(_position < _input.Length && char.IsNumber(Peek()))
+          }
+          else if (_position < _input.Length && char.IsNumber(Peek()))
           {
-            expr = new PostfixExpression(expr, "^"+ConsumeChar());
+            expr = new PostfixExpression(expr, "^" + ConsumeChar());
           }
           else
           {
@@ -147,7 +170,7 @@ namespace generate_Grammar.Parser
 
       foreach (char c in _input)
       {
-        if (char.IsLetter(c))
+        if (char.IsAsciiLetter(c))
         {
           uniqueLetters.Add(c);
         }

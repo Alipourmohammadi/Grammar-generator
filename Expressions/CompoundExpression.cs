@@ -46,7 +46,7 @@ namespace generate_Grammar.Expressions
         {
           if (item is CompoundExpression cex && cex.Type == CompoundType.Alternation)
           {
-            AddUnique(CEX);
+            AddUnique(cex);
           }
           else if (!Elements.Any(e => e.Equals(item)))
           {
@@ -63,6 +63,49 @@ namespace generate_Grammar.Expressions
       }
       return false;
     }
+    //public bool AddUnique(Expression expr)
+    //{
+    //  bool added = false;
+
+    //  // For concatenation types, we should still allow adding unique elements
+    //  // (removing the automatic return false)
+
+    //  if (expr is CompoundExpression incomingExpr && incomingExpr.Type == CompoundType.Alternation)
+    //  {
+    //    if (this.Type == CompoundType.Alternation)
+    //    {
+    //      foreach (var element in incomingExpr.Elements)
+    //      {
+    //        // Handle nested alternations recursively, flattening the structure
+    //        if (element is CompoundExpression nestedAlt && nestedAlt.Type == CompoundType.Alternation)
+    //        {
+    //          // Recursively add elements from the nested alternation
+    //          if (AddUnique(nestedAlt))
+    //            added = true;
+    //        }
+            
+    //        else if (!Elements.Any(e => e.Equals(element)))
+    //        {
+    //          Elements.Add(element);
+    //          added = true;
+    //        }
+    //      }
+    //      return added;
+    //    }
+    //    else if (!Elements.Any(e => e.Equals(expr)))
+    //    {
+    //      Elements.Add(expr);
+    //      return true;
+    //    }
+    //  }
+    //  else if (!Elements.Any(e => e.Equals(expr)))
+    //  {
+    //    Elements.Add(expr);
+    //    return true;
+    //  }
+
+    //  return added;
+    //}
     // insert Expression to begging of the elements
     public void Insert(Expression expr)
     {

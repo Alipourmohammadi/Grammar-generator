@@ -372,9 +372,9 @@ namespace RegexExpressionParser
     {
       // Example usage
       //string equation1 = "a*(c+a)";
-      string equation1 = "c*a*(ab^++ca)(cb*)^+";
-      //string equation1 = "a*b^+c*(a*c*+b^+)*+c*a";
       //string equation1 = "b*a*(a^+b*c*)*";
+      //string equation1 = "(ab^++c*b*a^+)*a*c";
+      string equation1 = "(a^+b^++ac*)^++(b*a^++c^+b*)*b";
       string equation2 = "a*+(b^+a+c)^+";
 
       try

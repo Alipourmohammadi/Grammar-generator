@@ -1,7 +1,10 @@
 ﻿using generate_Grammar.Expressions;
+using generate_Grammar.Variables;
 using System.ComponentModel.Design;
 using System.Diagnostics.Metrics;
 using System.Net.Http.Headers;
+using System.Xml.XPath;
+using static generate_Grammar.Expressions.CompoundExpression;
 
 namespace generate_Grammar.GrammarCalculation
 {
@@ -9,6 +12,8 @@ namespace generate_Grammar.GrammarCalculation
   {
     Expression _expression;
     HashSet<char> _alphabet;
+    List<Variable> Variables = new List<Variable>();
+
     public GrammarGenerator(Expression expression, HashSet<char> alphabet)
     {
       _expression = expression;
@@ -22,15 +27,37 @@ namespace generate_Grammar.GrammarCalculation
     }
     public void calculateGrammar()
     {
-      if (_expression is CompoundExpression)
+      Variables.Add(new Variable('S', _expression));
+      var Var = Variables.FirstOrDefault(x => x.prosced == false);
+      while (Var != null)
       {
-        CompoundExpression compoundExpression = (CompoundExpression)_expression;
+        calculateVariable(Var);
+        Var = Variables.FirstOrDefault(y => y.prosced == false);
+        Console.WriteLine();
+      }
+      Console.WriteLine("the final results are :");
+      foreach (var item in Variables)
+      {
+        Console.Write(item.Name + " : ");
+        Console.WriteLine(item.expr);
+      }
+    }
+
+    private void calculateVariable(Variable Var)
+    {
+      if (Var.expr is CompoundExpression compex && compex.Elements.Count > 0)
+      {
+        CompoundExpression compoundExpression = (CompoundExpression)Var.expr;
         if (compoundExpression.Type == CompoundExpression.CompoundType.Alternation)
         {
           for (int i = 0; i < _alphabet.Count; i++)
           {
             var result = calcAlternation(compoundExpression, _alphabet.ElementAt(i));
-            Console.WriteLine(result);
+            if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
+            {
+              Console.Write(Var.Name + "->");
+              Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
+            }
           }
         }
         else if (compoundExpression.Type == CompoundExpression.CompoundType.Concatenation)
@@ -38,20 +65,28 @@ namespace generate_Grammar.GrammarCalculation
           for (int i = 0; i < _alphabet.Count; i++)
           {
             var result = calcConcatenation(compoundExpression, _alphabet.ElementAt(i));
-            Console.WriteLine(result);
+            if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
+            {
+              Console.Write(Var.Name + "->");
+              Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
+            }
 
           }
         }
       }
-      else if ((_expression is PostfixExpression postfixEx) && (postfixEx.Base is CompoundExpression))
+      else if ((Var.expr is PostfixExpression postfixEx) && (postfixEx.Base is CompoundExpression))
       {
         for (int i = 0; i < _alphabet.Count; i++)
         {
           var result = calcNestedCompoundEx(postfixEx, _alphabet.ElementAt(i));
-          Console.WriteLine(result);
-
+          if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
+          {
+            Console.Write(Var.Name + "->");
+            Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
+          }
         }
       }
+      Var.prosced = true;
     }
     public Expression? calcAlternation(CompoundExpression expression, char alphabet)
     {
@@ -62,13 +97,13 @@ namespace generate_Grammar.GrammarCalculation
         {
           var R = calcConcatenation(CEx, alphabet);
           if (R != null)
-           Alter.AddUnique(R);
+            Alter.AddUnique(R);
         }
         else if (Ex is PostfixExpression postEx && postEx.Base is CompoundExpression)
         {
           var R = calcNestedCompoundEx(postEx, alphabet);
           if (R != null)
-           Alter.AddUnique(R);
+            Alter.AddUnique(R);
         }
         else
         {
@@ -76,7 +111,7 @@ namespace generate_Grammar.GrammarCalculation
           CEX.Add(Ex);
           var R = calcConcatenation(CEX, alphabet);
           if (R != null)
-           Alter.AddUnique(R);
+            Alter.AddUnique(R);
         }
       }
 
@@ -101,10 +136,15 @@ namespace generate_Grammar.GrammarCalculation
           if (symbol.Name[0] == alphabet)
           {
             if (i + 1 >= expression.Elements.Count)
-              return new Symbol("λ");
+              if (Alter.Elements.Count > 0)
+              {
+                Alter.AddUnique(new Symbol("λ"));
+                return Alter;
+              }
+              else return new Symbol("λ");
             return subConcatEx(expression, i + 1);
           }
-          return null;
+          if (Alter.Elements.Count > 0) return Alter; else return null;
         }
         else if (Ex is PostfixExpression PEx && PEx.Base is Symbol symbol1)
         {
@@ -116,20 +156,21 @@ namespace generate_Grammar.GrammarCalculation
                 return new PostfixExpression(PEx.Base, "*");
               var subEx = subConcatEx(expression, i + 1);
               subEx.Insert(new PostfixExpression(PEx.Base, "*"));
-              return subEx;
+              Alter.AddUnique(subEx);
+              return Alter;
             }
             if (PEx.Operator == "*")
             {
               if (i + 1 >= expression.Elements.Count)
                 return new PostfixExpression(PEx.Base, "*");
               var subEx = subConcatEx(expression, i);
-             Alter.AddUnique(subEx);
+              Alter.AddUnique(subEx);
               // calculate the rest
               var rest = subConcatEx(expression, i + 1);
               var calculatedRest = calcConcatenation(rest, alphabet);
               if (calculatedRest is not null)
               {
-               Alter.AddUnique(calculatedRest);
+                Alter.AddUnique(calculatedRest);
               }
               if (Alter.Elements.Count == 1)
               {
@@ -142,11 +183,19 @@ namespace generate_Grammar.GrammarCalculation
           {
             // calculate the rest
             if (i + 1 >= expression.Elements.Count)
-              return null;
+              if (Alter.Elements.Count > 0) return Alter; else return null;
             var rest = subConcatEx(expression, i + 1);
-            return calcConcatenation(rest, alphabet);
+            var result = calcConcatenation(rest, alphabet);
+            if (result != null)
+            {
+              Alter.AddUnique(result);
+            }
+            return Alter;
           }
-          else { return null; }
+          else
+          {
+            if (Alter.Elements.Count > 0) return Alter; else return null;
+          }
         }
         //check the removal of the second condition
         else if (Ex is CompoundExpression _CEx)
@@ -162,7 +211,7 @@ namespace generate_Grammar.GrammarCalculation
             //add the rest
             if (expression.Elements.Count == 1)
             {
-             
+
             }
             else if (nestedResult is CompoundExpression compEx)
             {
@@ -187,7 +236,7 @@ namespace generate_Grammar.GrammarCalculation
                     temp.Add(ex);
                     for (int j = i + 1; j < expression.Elements.Count; j++)
                       temp.Add(expression.Elements.ElementAt(j));
-                    ex = temp;
+                    compEx.Elements[k] = temp;
                   }
                 }
               }
@@ -201,7 +250,7 @@ namespace generate_Grammar.GrammarCalculation
               nestedResult = temp;
             }
             //return the results
-           Alter.AddUnique(nestedResult);
+            Alter.AddUnique(nestedResult);
             if (CEx.Operator == "^+")
               break;
           }
@@ -325,7 +374,7 @@ namespace generate_Grammar.GrammarCalculation
             var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
             if (resutl is Symbol sym && sym.Name != "λ")
             {
-            temp.Add(resutl);
+              temp.Add(resutl);
             }
             temp.Add(expression);
             resutl = temp;
@@ -349,7 +398,67 @@ namespace generate_Grammar.GrammarCalculation
       return concat;
     }
 
+    private Variable AddUnique(Expression expr)
+    {
 
+      foreach (var item in Variables)
+      {
+        // Handle alternation compound expressions comparison (order doesn't matter)
+        if (item.expr is CompoundExpression CEx1 && CEx1.Type == CompoundType.Alternation &&
+            expr is CompoundExpression CEx2 && CEx2.Type == CompoundType.Alternation)
+        {
+          // First check if they have the same number of elements
+          if (CEx1.Elements.Count == CEx2.Elements.Count)
+          {
+            bool allElementsMatch = true;
+
+            // Check if every element in CEx1 exists in CEx2
+            foreach (var element in CEx1.Elements)
+            {
+              if (!CEx2.Elements.Any(e => e.Equals(element)))
+              {
+                allElementsMatch = false;
+                break;
+              }
+            }
+
+            // Check if every element in CEx2 exists in CEx1
+            foreach (var element in CEx2.Elements)
+            {
+              if (!CEx1.Elements.Any(e => e.Equals(element)))
+              {
+                allElementsMatch = false;
+                break;
+              }
+            }
+
+            if (allElementsMatch)
+            {
+              return item;
+            }
+          }
+        }
+        // Simple equality comparison for other expression types
+        else if (item.expr.Equals(expr))
+        {
+          return item;
+        }
+      }
+
+
+      if (Variables.Count == 0 || Variables.Last().Name == 'S')
+      {
+        Variables.Add(new Variable('A', expr));
+        return Variables.Last();
+      }
+      else
+      {
+        char name = Variables.Last().Name;
+        Variables.Add(new Variable((char)(name + 1), expr));
+        return Variables.Last();
+      }
+
+    }
   }
 
 }
