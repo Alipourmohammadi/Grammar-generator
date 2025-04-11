@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "generate Grammar", "generate Grammar.csproj", "{020EBE89-2F6C-4608-B2A8-A103FE5B58DF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "grammer Generator", "..\..\..\..\..\..\..\..\home\AliPM\Documents\dev\grammer Generator\grammer Generator.csproj", "{34D81BB3-EE70-4A66-8399-416024E4C74A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{020EBE89-2F6C-4608-B2A8-A103FE5B58DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{020EBE89-2F6C-4608-B2A8-A103FE5B58DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{020EBE89-2F6C-4608-B2A8-A103FE5B58DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{020EBE89-2F6C-4608-B2A8-A103FE5B58DF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{34D81BB3-EE70-4A66-8399-416024E4C74A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{34D81BB3-EE70-4A66-8399-416024E4C74A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{34D81BB3-EE70-4A66-8399-416024E4C74A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{34D81BB3-EE70-4A66-8399-416024E4C74A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
