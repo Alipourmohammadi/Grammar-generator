@@ -7,51 +7,72 @@ using System.Threading.Tasks;
 
 namespace generate_Grammar.Parser
 {
+  /// <summary>
+  /// Parser for grammar expressions
+  /// </summary>
   public class Parser
   {
-    private string _input;
-    private string _initialInput;
+    private readonly string _input;
+    private readonly string _originalInput;
     private int _position;
 
+    /// <summary>
+    /// Creates a new parser for the specified input
+    /// </summary>
     public Parser(string input)
     {
-      _initialInput = input;
-      _input = clearelambdda();
+      _originalInput = input ?? throw new ArgumentNullException(nameof(input));
+      _input = RemoveLambdaSymbol();
       _position = 0;
     }
 
+    /// <summary>
+    /// Parses the input into an expression
+    /// </summary>
     public Expression Parse()
     {
+      if (string.IsNullOrEmpty(_input))
+        throw new InvalidOperationException("Input is empty");
+
       Expression result = ParseExpression();
 
       if (_position < _input.Length)
       {
-        throw new Exception($"Unexpected characters at position {_position}: {_input.Substring(_position)}");
+        throw new ParseException($"Unexpected characters at position {_position}: {_input.Substring(_position)}", _position);
       }
 
       return result;
     }
-    private string clearelambdda()
+
+    /// <summary>
+    /// Removes lambda symbols from the input
+    /// </summary>
+    private string RemoveLambdaSymbol()
     {
-      StringBuilder result = new StringBuilder();
-      var lamdaIndex = _initialInput.IndexOf('λ');
-      if (lamdaIndex == -1)
+      // This method appears to be removing lambda symbol and adjacent characters
+      // which seems suspicious. Consider revising the logic based on requirements.
+      int lambdaIndex = _originalInput.IndexOf('λ');
+      if (lambdaIndex == -1)
       {
-        return _initialInput;
+        return _originalInput;
       }
-      else
+
+      StringBuilder result = new StringBuilder(_originalInput.Length);
+      for (int i = 0; i < _originalInput.Length; i++)
       {
-        for (global::System.Int32 i = 0; i < _initialInput.Length; i++)
-        {
-          if (!(i == lamdaIndex || i == lamdaIndex - 1 || i == lamdaIndex + 1))
-          {
-            result.Append(_initialInput[i]);
-          }
-        }
+        // Skip lambda and adjacent characters
+        if (i == lambdaIndex || i == lambdaIndex - 1 || i == lambdaIndex + 1)
+          continue;
+
+        result.Append(_originalInput[i]);
       }
+
       return result.ToString();
     }
 
+    /// <summary>
+    /// Parses an expression (alternation)
+    /// </summary>
     private Expression ParseExpression()
     {
       Expression left = ParseTerm();
@@ -60,12 +81,16 @@ namespace generate_Grammar.Parser
       {
         // Found a '+', so this is an alternation/sum
         Consume(); // consume '+'
-        CompoundExpression alternation;
 
+        CompoundExpression alternation;
         if (left is CompoundExpression compoundLeft && compoundLeft.Type == CompoundExpression.CompoundType.Alternation)
+        {
+          // Continue building the existing alternation
           alternation = compoundLeft;
+        }
         else
         {
+          // Create a new alternation
           alternation = new CompoundExpression(CompoundExpression.CompoundType.Alternation);
           alternation.Add(left);
         }
@@ -77,6 +102,9 @@ namespace generate_Grammar.Parser
       return left;
     }
 
+    /// <summary>
+    /// Parses a term (concatenation)
+    /// </summary>
     private Expression ParseTerm()
     {
       Expression result = ParseFactor();
@@ -87,25 +115,34 @@ namespace generate_Grammar.Parser
             Peek() != '+')
       {
         CompoundExpression concat;
-
         if (result is CompoundExpression compoundResult && compoundResult.Type == CompoundExpression.CompoundType.Concatenation)
+        {
+          // Continue building the existing concatenation
           concat = compoundResult;
+        }
         else
         {
+          // Create a new concatenation
           concat = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
           concat.Add(result);
         }
-        var x = ParseFactor();
-        concat.Add(x);
+
+        concat.Add(ParseFactor());
         result = concat;
       }
 
       return result;
     }
 
+    /// <summary>
+    /// Parses a factor (symbol, parenthesized expression, or postfix expression)
+    /// </summary>
     private Expression ParseFactor()
     {
       Expression expr;
+
+      if (_position >= _input.Length)
+        throw new ParseException("Unexpected end of input", _position);
 
       if (Peek() == '(')
       {
@@ -119,7 +156,7 @@ namespace generate_Grammar.Parser
       }
       else
       {
-        throw new Exception($"Unexpected character at position {_position}: {Peek()}");
+        throw new ParseException($"Unexpected character at position {_position}: {Peek()}", _position);
       }
 
       // Check for postfix operators
@@ -142,12 +179,18 @@ namespace generate_Grammar.Parser
           }
           else if (_position < _input.Length && char.IsNumber(Peek()))
           {
-            expr = new PostfixExpression(expr, "^" + ConsumeChar());
+            // Get all digits of the number
+            StringBuilder numberBuilder = new StringBuilder();
+            while (_position < _input.Length && char.IsNumber(Peek()))
+            {
+              numberBuilder.Append(ConsumeChar());
+            }
+            expr = new PostfixExpression(expr, "^" + numberBuilder.ToString());
           }
           else
           {
-            //Error?
-            expr = new PostfixExpression(expr, "^");
+            // Just '^' with no number or '+' after it is probably an error
+            throw new ParseException("Expected a number or '+' after '^'", _position);
           }
         }
         else
@@ -159,13 +202,11 @@ namespace generate_Grammar.Parser
       return expr;
     }
 
+    /// <summary>
+    /// Gets the set of unique letters in the input
+    /// </summary>
     public HashSet<char> GetUniqueLetters()
     {
-      if (string.IsNullOrEmpty(_input))
-      {
-        return new HashSet<char>();
-      }
-
       HashSet<char> uniqueLetters = new HashSet<char>();
 
       foreach (char c in _input)
@@ -179,28 +220,71 @@ namespace generate_Grammar.Parser
       return uniqueLetters;
     }
 
+    /// <summary>
+    /// Peeks at the current character without consuming it
+    /// </summary>
     private char Peek()
     {
+      if (_position >= _input.Length)
+        throw new ParseException("Unexpected end of input", _position);
+
       return _input[_position];
     }
 
+    /// <summary>
+    /// Consumes and returns the current character
+    /// </summary>
     private char ConsumeChar()
     {
+      if (_position >= _input.Length)
+        throw new ParseException("Unexpected end of input", _position);
+
       return _input[_position++];
     }
 
+    /// <summary>
+    /// Consumes the current character without returning it
+    /// </summary>
     private void Consume()
     {
+      if (_position >= _input.Length)
+        throw new ParseException("Unexpected end of input", _position);
+
       _position++;
     }
 
+    /// <summary>
+    /// Expects and consumes a specific character
+    /// </summary>
     private void Expect(char expected)
     {
-      if (_position >= _input.Length || _input[_position] != expected)
-      {
-        throw new Exception($"Expected '{expected}' at position {_position}");
-      }
+      if (_position >= _input.Length)
+        throw new ParseException($"Expected '{expected}' but found end of input", _position);
+
+      if (_input[_position] != expected)
+        throw new ParseException($"Expected '{expected}' at position {_position} but found '{_input[_position]}'", _position);
+
       _position++;
+    }
+  }
+
+  /// <summary>
+  /// Exception thrown when parsing fails
+  /// </summary>
+  public class ParseException : Exception
+  {
+    /// <summary>
+    /// Gets the position in the input where the error occurred
+    /// </summary>
+    public int Position { get; }
+
+    /// <summary>
+    /// Creates a new parse exception with the specified message and position
+    /// </summary>
+    public ParseException(string message, int position)
+        : base(message)
+    {
+      Position = position;
     }
   }
 }

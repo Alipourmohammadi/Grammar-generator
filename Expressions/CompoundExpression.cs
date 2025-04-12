@@ -1,9 +1,11 @@
-﻿
-using System.Text;
-
+﻿using System.Text;
 
 namespace generate_Grammar.Expressions
 {
+  /// <summary>
+  /// Represents a compound expression in grammar, combining multiple expressions
+  /// through concatenation or alternation.
+  /// </summary>
   public class CompoundExpression : Expression
   {
     public enum CompoundType
@@ -18,102 +20,88 @@ namespace generate_Grammar.Expressions
     public CompoundExpression(CompoundType type, params Expression[] elements)
     {
       Type = type;
-      Elements.AddRange(elements);
+      if (elements != null && elements.Length > 0)
+      {
+        Elements.AddRange(elements);
+      }
     }
 
+    /// <summary>
+    /// Adds an expression to this compound expression, flattening compound expressions 
+    /// of the same type where appropriate.
+    /// </summary>
     public void Add(Expression expr)
     {
-      if (expr is CompoundExpression CEX && CEX.Type == CompoundType.Alternation && Type == CompoundType.Alternation)
+      // Flatten nested alternations of the same type
+      if (expr is CompoundExpression compoundExpr &&
+          compoundExpr.Type == Type &&
+          Type == CompoundType.Alternation)
       {
-        foreach (var item in CEX.Elements)
-        {
-          Elements.Add(item);
-        }
+        Elements.AddRange(compoundExpr.Elements);
       }
       else
       {
         Elements.Add(expr);
       }
     }
+
+    /// <summary>
+    /// Adds an expression if it's not already present in the elements collection.
+    /// For alternation expressions, this prevents duplication.
+    /// </summary>
+    /// <returns>True if the expression was added, false otherwise.</returns>
     public bool AddUnique(Expression expr)
     {
-      // Check if the expression is already in the list
       if (Type == CompoundType.Concatenation)
-        return false;
-      if (expr is CompoundExpression CEX && CEX.Type == CompoundType.Alternation)
       {
-        foreach (var item in CEX.Elements)
-        {
-          if (item is CompoundExpression cex && cex.Type == CompoundType.Alternation)
-          {
-            AddUnique(cex);
-          }
-          else if (!Elements.Any(e => e.Equals(item)))
-          {
-            Add(item);
-          }
-        }
-        return true;
-      }
-
-      if (!Elements.Any(e => e.Equals(expr)))
-      {
+        // For concatenation, uniqueness doesn't make sense, so just add
         Add(expr);
         return true;
       }
-      return false;
+
+      bool added = false;
+
+      if (expr is CompoundExpression incomingExpr && incomingExpr.Type == CompoundType.Alternation)
+      {
+        // Handle flattening of nested alternations
+        foreach (var element in incomingExpr.Elements)
+        {
+          // Handle nested alternations recursively to flatten the structure
+          if (element is CompoundExpression nestedAlt && nestedAlt.Type == CompoundType.Alternation)
+          {
+            if (AddUnique(nestedAlt))
+              added = true;
+          }
+          else if (!Elements.Any(e => e.Equals(element)))
+          {
+            Elements.Add(element);
+            added = true;
+          }
+        }
+      }
+      else if (!Elements.Any(e => e.Equals(expr)))
+      {
+        Elements.Add(expr);
+        added = true;
+      }
+
+      return added;
     }
-    //public bool AddUnique(Expression expr)
-    //{
-    //  bool added = false;
 
-    //  // For concatenation types, we should still allow adding unique elements
-    //  // (removing the automatic return false)
-
-    //  if (expr is CompoundExpression incomingExpr && incomingExpr.Type == CompoundType.Alternation)
-    //  {
-    //    if (this.Type == CompoundType.Alternation)
-    //    {
-    //      foreach (var element in incomingExpr.Elements)
-    //      {
-    //        // Handle nested alternations recursively, flattening the structure
-    //        if (element is CompoundExpression nestedAlt && nestedAlt.Type == CompoundType.Alternation)
-    //        {
-    //          // Recursively add elements from the nested alternation
-    //          if (AddUnique(nestedAlt))
-    //            added = true;
-    //        }
-            
-    //        else if (!Elements.Any(e => e.Equals(element)))
-    //        {
-    //          Elements.Add(element);
-    //          added = true;
-    //        }
-    //      }
-    //      return added;
-    //    }
-    //    else if (!Elements.Any(e => e.Equals(expr)))
-    //    {
-    //      Elements.Add(expr);
-    //      return true;
-    //    }
-    //  }
-    //  else if (!Elements.Any(e => e.Equals(expr)))
-    //  {
-    //    Elements.Add(expr);
-    //    return true;
-    //  }
-
-    //  return added;
-    //}
-    // insert Expression to begging of the elements
+    /// <summary>
+    /// Inserts an expression at the beginning of the elements list.
+    /// </summary>
     public void Insert(Expression expr)
     {
       Elements.Insert(0, expr);
     }
-    public Expression getFirst()
+
+    /// <summary>
+    /// Returns the first element in the list.
+    /// </summary>
+    public Expression GetFirst()
     {
-      return Elements.First();
+      return Elements.FirstOrDefault() ?? new Symbol("λ"); // Return lambda as fallback
     }
 
     protected override string ToStringImpl()
@@ -122,14 +110,14 @@ namespace generate_Grammar.Expressions
         return "";
 
       StringBuilder sb = new StringBuilder();
-      //sb.Append("(");
+
       for (int i = 0; i < Elements.Count; i++)
       {
         if (i > 0 && Type == CompoundType.Alternation)
           sb.Append("+");
         sb.Append(Elements[i].ToString());
       }
-      //sb.Append(")");
+
       return sb.ToString();
     }
   }

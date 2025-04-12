@@ -1,108 +1,140 @@
-﻿
-
-using generate_Grammar.Expressions;
+﻿using generate_Grammar.Expressions;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace generate_Grammar.Variables
 {
+  /// <summary>
+  /// Represents a variable in grammar with its associated expression and production rules.
+  /// </summary>
   public class Variable
   {
-
-    public Expression expr { get; set; }
+    public Expression Expression { get; set; }
     public char Name { get; set; }
-    public bool prosced { get; set; }
+    public bool IsProcessed { get; set; }
+    public List<string> GrammarResults { get; private set; } = new List<string>();
 
-    public List<string> GrammarResults { get; set; } = new List<string>();
-    public Variable(char name, Expression Expr)
+    public Variable(char name, Expression expression)
     {
       Name = name;
-      expr = Expr;
+      Expression = expression;
+      IsProcessed = false;
     }
+
+    /// <summary>
+    /// Determines if this variable's expression can generate the empty string (lambda).
+    /// </summary>
     public bool CanGenerateLambda()
     {
-      return checkLambdaCreation(this.expr);
+      return CheckLambdaGeneration(this.Expression);
     }
-    private bool checkLambdaCreation(Expression expr)
+
+    /// <summary>
+    /// Recursively checks if an expression can generate lambda.
+    /// </summary>
+    private bool CheckLambdaGeneration(Expression expr)
     {
-      if (expr is Symbol symbol)
+      switch (expr)
       {
-        if (symbol.Name == "λ")
-        {
-          return true;
-        }
-        return false;
-      }
-      else if (expr is PostfixExpression postfix)
-      {
-        if (postfix.Operator == "*")
-          return true;
-        else if (postfix.Operator == "^+" || postfix.Operator == "")
+        case Symbol symbol:
+          return symbol.Name == "λ";
+
+        case PostfixExpression postfix:
+          // Only * operator can generate lambda
+          if (postfix.Operator == "*")
+            return true;
+
+          if (postfix.Operator == "^+" || postfix.Operator == "")
+            return false;
+
+          // For numbered operators (^n), check if n >= 0
+          if (postfix.Operator.StartsWith("^") && postfix.Operator.Length > 1)
+          {
+            if (int.TryParse(postfix.Operator.Substring(1), out int count))
+              return count == 0 || (count > 0 && CheckLambdaGeneration(postfix.Base));
+          }
+
           return false;
 
-
-        //return CanGenerateLambda(postfix.Base);
-      }
-      else if (expr is CompoundExpression compound)
-      {
-        if (compound.Type == CompoundExpression.CompoundType.Alternation)
-        {
-          foreach (var element in compound.Elements)
+        case CompoundExpression compound:
+          if (compound.Type == CompoundExpression.CompoundType.Alternation)
           {
-            if (checkLambdaCreation(element))
-            {
-              return true;
-            }
+            // Only need one alternative to generate lambda
+            return compound.Elements.Any(CheckLambdaGeneration);
+          }
+          else if (compound.Type == CompoundExpression.CompoundType.Concatenation)
+          {
+            // All parts must be able to generate lambda
+            return compound.Elements.All(CheckLambdaGeneration);
           }
           return false;
-        }
-        else if (compound.Type == CompoundExpression.CompoundType.Concatenation)
-        {
-          foreach (var element in compound.Elements)
-          {
-            if (!checkLambdaCreation(element))
-            {
-              return false;
-            }
-          }
-          return true;
-        }
+
+        default:
+          return false;
       }
-      return false;
     }
-    public void addGrammar(Variable var, char alph)
+
+    /// <summary>
+    /// Adds a grammar production rule to this variable.
+    /// </summary>
+    public void AddGrammar(Variable variable, char symbol)
     {
-      if (var != null)
+      string production;
+
+      if (variable != null)
       {
-        if (var.expr is CompoundExpression c1)
+        // Check if the target variable has a non-empty expression
+        if (variable.Expression is CompoundExpression compoundExpr && compoundExpr.Elements.Count > 0 ||
+            !(variable.Expression is CompoundExpression))
         {
-          if (c1.Elements.Count > 0)
-          {
-            GrammarResults.Add(alph + var.Name.ToString());
-            //Console.Write(this.Name + "->");
-            //Console.WriteLine(alph + var.Name.ToString());
-          }
+          production = $"{symbol}{variable.Name}";
         }
         else
         {
-          GrammarResults.Add(alph + var.Name.ToString());
-          //Console.Write(this.Name + "->");
-          //Console.WriteLine(alph + var.Name.ToString());
+          // Just the symbol if the variable has an empty expression
+          production = symbol.ToString();
         }
       }
-      else GrammarResults.Add(alph.ToString());
+      else
+      {
+        // Just the symbol for lambda or direct terminals
+        production = symbol.ToString();
+      }
+
+      // Add the production if it doesn't already exist
+      if (!GrammarResults.Contains(production))
+      {
+        GrammarResults.Add(production);
+      }
     }
 
+    /// <summary>
+    /// Prints the grammar production rules for this variable.
+    /// </summary>
     public void PrintGrammar()
     {
-      Console.Write(this.Name + " -> ");
+      StringBuilder sb = new StringBuilder();
+      sb.Append($"{Name} -> ");
+
       for (int i = 0; i < GrammarResults.Count; i++)
       {
-        Console.Write(GrammarResults.ElementAt(i));
+        sb.Append(GrammarResults[i]);
         if (i + 1 < GrammarResults.Count)
         {
-          Console.Write("|");
+          sb.Append(" | ");
         }
       }
+
+      System.Console.Write(sb.ToString());
+    }
+
+    /// <summary>
+    /// Returns a string representation of this variable.
+    /// </summary>
+    public override string ToString()
+    {
+      return $"{Name} -> {Expression}";
     }
   }
 }

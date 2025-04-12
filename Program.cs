@@ -11,17 +11,14 @@ namespace RegexExpressionParser
     {
       // Example usage
       //string equation1 = "a*c+a*a";
-      string equation1 = "a*(c+b)+a";
+      //string equation1 = "a*(c+b)+a";
       //string equation1 = "b*a*(a^+b*c*)*";
       //string equation1 = "(ab^++c*b*a^+)*a*c";
       //string equation1 = "(a^+b^++ac*)^++(b*a^++c^+b*)*b";
       //string equation1 = "abcd";
+      string equation1 = "(a+ab*)^+(ca+b)*";
       //string equation1 = "(aa+b)(ab+bb)*";
       //string equation1 = "(a+ab^+)*(bc*+c)^+";
-
-
-
-      string equation2 = "a*+(b^+a+c)^+";
 
       try
       {
@@ -30,11 +27,11 @@ namespace RegexExpressionParser
         GrammarGenerator generator = new GrammarGenerator(expr1,parser1.GetUniqueLetters());
         Console.WriteLine($"Parsed equation : {expr1}");
         Console.WriteLine();
-        generator.calculateGrammar();
+        generator.CalculateGrammar();
         Console.WriteLine("Generated Grammar:");
-        generator.printGrammar();
+        generator.PrintGrammar();
         Console.WriteLine("Variables are:");
-        generator.printVariables();
+        generator.PrintVariables();
 
         //PrintStructure(expr1, "Equation Structure");
       }

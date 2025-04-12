@@ -1,502 +1,573 @@
 ﻿using generate_Grammar.Expressions;
 using generate_Grammar.Variables;
-using System.ComponentModel.Design;
-using System.Diagnostics.Metrics;
-using System.Net.Http.Headers;
-using System.Reflection.Metadata;
-using System.Xml.XPath;
+using System.Collections.Generic;
+using System.Linq;
 using static generate_Grammar.Expressions.CompoundExpression;
 
 namespace generate_Grammar.GrammarCalculation
 {
+  /// <summary>
+  /// Generates grammar rules from regular expressions.
+  /// </summary>
   public class GrammarGenerator
   {
-    Expression _expression;
-    HashSet<char> _alphabet;
-    List<Variable> Variables = new List<Variable>();
+    private readonly Expression _expression;
+    private readonly HashSet<char> _alphabet;
+    private readonly List<Variable> _variables = new List<Variable>();
 
     public GrammarGenerator(Expression expression, HashSet<char> alphabet)
     {
       _expression = expression;
       _alphabet = alphabet;
     }
-    public enum ExType
+
+    /// <summary>
+    /// Calculates the grammar by examining each variable and processing it.
+    /// </summary>
+    public void CalculateGrammar()
     {
-      concatinaion,
-      alternation,
-      postFixEx
-    }
-    public void calculateGrammar()
-    {
-      Variables.Add(new Variable('S', _expression));
-      var Var = Variables.FirstOrDefault(x => x.prosced == false);
-      while (Var != null)
+      // Initialize with start variable
+      _variables.Add(new Variable('S', _expression));
+
+      // Process variables until all are marked as processed
+      Variable? currentVar;
+      while ((currentVar = _variables.FirstOrDefault(x => !x.IsProcessed)) != null)
       {
-        if (Var.CanGenerateLambda())
+        if (currentVar.CanGenerateLambda())
         {
-          Var.addGrammar(null, 'λ');
+          currentVar.AddGrammar(null, 'λ');
         }
-        calculateVariable(Var);
-        Var = Variables.FirstOrDefault(y => y.prosced == false);
-      }
-    }
-    public void printVariables()
-    {
-      foreach (var item in Variables)
-      {
-        Console.Write(item.Name + " : ");
-        Console.WriteLine(item.expr);
-      }
-    }
-    public void printGrammar()
-    {
-      foreach (var item in Variables)
-      {
-        item.PrintGrammar();
-        Console.WriteLine();
+
+        CalculateVariable(currentVar);
+        currentVar.IsProcessed = true;
       }
     }
 
-    private void calculateVariable(Variable Var)
+    /// <summary>
+    /// Prints all variables and their expressions.
+    /// </summary>
+    public void PrintVariables()
     {
-      if (Var.expr is CompoundExpression compex && compex.Elements.Count > 0)
+      foreach (var variable in _variables)
       {
-        CompoundExpression compoundExpression = (CompoundExpression)Var.expr;
-        if (compoundExpression.Type == CompoundExpression.CompoundType.Alternation)
-        {
-          for (int i = 0; i < _alphabet.Count; i++)
-          {
-            var result = calcAlternation(compoundExpression, _alphabet.ElementAt(i));
-            if (result != null)
-              if (result is CompoundExpression c1)
-              {
-                if (c1.Elements.Count > 0)
-                  Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
-              }
-              else
-                Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
-
-          }
-        }
-        else if (compoundExpression.Type == CompoundExpression.CompoundType.Concatenation)
-        {
-          for (int i = 0; i < _alphabet.Count; i++)
-          {
-            var result = calcConcatenation(compoundExpression, _alphabet.ElementAt(i));
-            if (result != null)
-              if (result is CompoundExpression c1)
-              {
-                if (c1.Elements.Count > 0)
-                  Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
-              }
-              else
-                Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
-          }
-        }
+        System.Console.Write($"{variable.Name} : ");
+        System.Console.WriteLine(variable.Expression);
       }
-      else if ((Var.expr is PostfixExpression postfixEx) && (postfixEx.Base is CompoundExpression))
+    }
+
+    /// <summary>
+    /// Prints the final grammar rules.
+    /// </summary>
+    public void PrintGrammar()
+    {
+      foreach (var variable in _variables)
       {
-        for (int i = 0; i < _alphabet.Count; i++)
-        {
-          var result = calcNestedCompoundEx(postfixEx, _alphabet.ElementAt(i));
-          if (result != null)
-            if (result is CompoundExpression c1)
-            {
-              if (c1.Elements.Count > 0)
-                Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
-            }
-            else
-              Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
-        }
+        variable.PrintGrammar();
+        System.Console.WriteLine();
+      }
+    }
+
+    /// <summary>
+    /// Calculates the production rules for a given variable.
+    /// </summary>
+    private void CalculateVariable(Variable variable)
+    {
+      if (variable.Expression is CompoundExpression compoundExpr && compoundExpr.Elements.Count > 0)
+      {
+        ProcessCompoundExpression(variable, compoundExpr);
+      }
+      else if (variable.Expression is PostfixExpression postfixExpr && postfixExpr.Base is CompoundExpression)
+      {
+        ProcessPostfixExpression(variable, postfixExpr);
       }
       else
       {
-        Var.addGrammar(Var, _alphabet.ElementAt(0));
+        // Default behavior for simple expressions
+        variable.AddGrammar(variable, _alphabet.ElementAt(0));
       }
-      Var.prosced = true;
     }
-    private Expression? calcAlternation(CompoundExpression expression, char alphabet)
+
+    /// <summary>
+    /// Processes compound expressions for grammar calculation.
+    /// </summary>
+    private void ProcessCompoundExpression(Variable variable, CompoundExpression compoundExpr)
     {
-      var Alter = new CompoundExpression(CompoundExpression.CompoundType.Alternation);
-      foreach (var Ex in expression.Elements)
+      if (compoundExpr.Type == CompoundType.Alternation)
       {
-        if (Ex is CompoundExpression CEx && CEx.Type == CompoundExpression.CompoundType.Concatenation)
+        ProcessAlternationExpression(variable, compoundExpr);
+      }
+      else if (compoundExpr.Type == CompoundType.Concatenation)
+      {
+        ProcessConcatenationExpression(variable, compoundExpr);
+      }
+    }
+
+    /// <summary>
+    /// Processes alternation expressions for grammar calculation.
+    /// </summary>
+    private void ProcessAlternationExpression(Variable variable, CompoundExpression alternationExpr)
+    {
+      foreach (char symbol in _alphabet)
+      {
+        var result = CalculateAlternation(alternationExpr, symbol);
+        if (result != null)
         {
-          var R = calcConcatenation(CEx, alphabet);
-          if (R != null)
-            Alter.AddUnique(R);
+          if (result is CompoundExpression compExpr && compExpr.Elements.Count > 0)
+          {
+            variable.AddGrammar(AddUniqueVariable(result), symbol);
+          }
+          else if (!(result is CompoundExpression))
+          {
+            variable.AddGrammar(null, symbol); // Lambda case
+          }
         }
-        else if (Ex is PostfixExpression postEx && postEx.Base is CompoundExpression)
+      }
+    }
+
+    /// <summary>
+    /// Processes concatenation expressions for grammar calculation.
+    /// </summary>
+    private void ProcessConcatenationExpression(Variable variable, CompoundExpression concatExpr)
+    {
+      foreach (char symbol in _alphabet)
+      {
+        var result = CalculateConcatenation(concatExpr, symbol);
+        if (result != null)
         {
-          var R = calcNestedCompoundEx(postEx, alphabet);
-          if (R != null)
-            Alter.AddUnique(R);
+          if (result is CompoundExpression compExpr && compExpr.Elements.Count > 0)
+          {
+            variable.AddGrammar(AddUniqueVariable(result), symbol);
+          }
+          else if (!(result is CompoundExpression))
+          {
+            variable.AddGrammar(null, symbol); // Lambda case
+          }
+        }
+      }
+    }
+
+    /// <summary>
+    /// Processes postfix expression for grammar calculation.
+    /// </summary>
+    private void ProcessPostfixExpression(Variable variable, PostfixExpression postfixExpr)
+    {
+      foreach (char symbol in _alphabet)
+      {
+        var result = CalculateNestedCompoundExpression(postfixExpr, symbol);
+        if (result != null)
+        {
+          if (result is CompoundExpression compExpr && compExpr.Elements.Count > 0)
+          {
+            variable.AddGrammar(AddUniqueVariable(result), symbol);
+          }
+          else if (!(result is CompoundExpression))
+          {
+            variable.AddGrammar(null, symbol); // Lambda case
+          }
+        }
+      }
+    }
+
+    /// <summary>
+    /// Calculates the derivatives of alternation expressions.
+    /// </summary>
+    private Expression CalculateAlternation(CompoundExpression expression, char symbol)
+    {
+      var alternation = new CompoundExpression(CompoundType.Alternation);
+
+      foreach (var element in expression.Elements)
+      {
+        Expression result = null;
+
+        if (element is CompoundExpression compoundExpr && compoundExpr.Type == CompoundType.Concatenation)
+        {
+          result = CalculateConcatenation(compoundExpr, symbol);
+        }
+        else if (element is PostfixExpression postfixExpr && postfixExpr.Base is CompoundExpression)
+        {
+          result = CalculateNestedCompoundExpression(postfixExpr, symbol);
         }
         else
         {
-          var CEX = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-          CEX.Add(Ex);
-          var R = calcConcatenation(CEX, alphabet);
-          if (R != null)
-            Alter.AddUnique(R);
+          // Create a concatenation to handle simple expressions
+          var tempConcat = new CompoundExpression(CompoundType.Concatenation);
+          tempConcat.Add(element);
+          result = CalculateConcatenation(tempConcat, symbol);
+        }
+
+        if (result != null)
+        {
+          alternation.AddUnique(result);
         }
       }
 
-      if (Alter.Elements.Count > 0)
+      return alternation.Elements.Count switch
       {
-        if (Alter.Elements.Count == 1)
-        {
-          return Alter.Elements.First();
-        }
-        return Alter;
-      }
-      return null;
+        //0 => null,
+        1 => alternation.Elements.First(),
+        _ => alternation
+      };
     }
-    private Expression? calcConcatenation(CompoundExpression expression, char alphabet)
+
+    /// <summary>
+    /// Calculates the derivatives of concatenation expressions.
+    /// </summary>
+    private Expression CalculateConcatenation(CompoundExpression expression, char symbol)
     {
-      var Alter = new CompoundExpression(CompoundExpression.CompoundType.Alternation);
+      var alternation = new CompoundExpression(CompoundType.Alternation);
+
       for (int i = 0; i < expression.Elements.Count; i++)
       {
-        var Ex = expression.Elements.ElementAt(i);
-        if (Ex is Symbol symbol)
+        var element = expression.Elements[i];
+
+        if (element is Symbol symbolExpr)
         {
-          if (symbol.Name[0] == alphabet)
+          if (symbolExpr.Name[0] == symbol)
           {
-            if (i + 1 >= expression.Elements.Count) // check for the rest of expression
-              if (Alter.Elements.Count > 0)
-              {
-                Alter.AddUnique(new Symbol("λ"));
-                return returnAlter(Alter);
-              }
-              else return new Symbol("λ");
-            return subConcatEx(expression, i + 1);
-          }
-          return returnAlter(Alter);
-        }
-        else if (Ex is PostfixExpression PEx && PEx.Base is Symbol symbol1)
-        {
-          if (symbol1.Name[0] == alphabet)
-          {
-            if (PEx.Operator == "^+")
-            {
-              if (i + 1 > expression.Elements.Count) // if there is no rest of the expression
-              {
-                Alter.AddUnique(new PostfixExpression(PEx.Base, "*"));
-                return returnAlter(Alter);
-              }
-              var subEx = subConcatEx(expression, i + 1);
-              subEx.Insert(new PostfixExpression(PEx.Base, "*"));
-              Alter.AddUnique(subEx);
-              return returnAlter(Alter);
-            }
-            if (PEx.Operator == "*")
-            {
-              if (i + 1 >= expression.Elements.Count) // check if there are no rest of the equation
-              {
-                Alter.AddUnique(new PostfixExpression(PEx.Base, "*"));
-                return returnAlter(Alter);
-              }
-              var subEx = subConcatEx(expression, i);
-              Alter.AddUnique(subEx);
-              // calculate the rest
-              var rest = subConcatEx(expression, i + 1);
-              var calculatedRest = calcConcatenation(rest, alphabet);
-              if (calculatedRest is not null)
-              {
-                Alter.AddUnique(calculatedRest);
-              }
-              return returnAlter(Alter);
-            }
-          }
-          else if (PEx.Operator == "*")
-          {
-            // calculate the rest
+            // If this is the last element, return lambda or empty concatenation
             if (i + 1 >= expression.Elements.Count)
-              return returnAlter(Alter);
-            var rest = subConcatEx(expression, i + 1);
-            var result = calcConcatenation(rest, alphabet);
+            {
+              if (alternation.Elements.Count > 0)
+              {
+                alternation.AddUnique(new Symbol("λ"));
+                return ReturnAlternationResult(alternation);
+              }
+              return new Symbol("λ");
+            }
+
+            // Otherwise, return the rest of the concatenation
+            return CreateSubConcatenation(expression, i + 1);
+          }
+
+          // No match for this symbol
+          return ReturnAlternationResult(alternation);
+        }
+        else if (element is PostfixExpression postfixExpr && postfixExpr.Base is Symbol baseSymbol)
+        {
+          // Handle postfix expressions with symbol base
+          if (baseSymbol.Name[0] == symbol)
+          {
+            if (postfixExpr.Operator == "^+")
+            {
+              // a^+ derivative with respect to 'a' is a*
+              if (i + 1 >= expression.Elements.Count)
+              {
+                alternation.AddUnique(new PostfixExpression(postfixExpr.Base, "*"));
+                return ReturnAlternationResult(alternation);
+              }
+
+              var subExpr = CreateSubConcatenation(expression, i + 1);
+              var starExpr = new PostfixExpression(postfixExpr.Base, "*");
+              subExpr.Insert(starExpr);
+              alternation.AddUnique(subExpr);
+              return ReturnAlternationResult(alternation);
+            }
+            else if (postfixExpr.Operator == "*")
+            {
+              // a* derivative with respect to 'a' is a* or the rest
+              if (i + 1 >= expression.Elements.Count)
+              {
+                alternation.AddUnique(new PostfixExpression(postfixExpr.Base, "*"));
+                return ReturnAlternationResult(alternation);
+              }
+
+              // Add a*
+              var subExpr = CreateSubConcatenation(expression, i);
+              alternation.AddUnique(subExpr);
+
+              // Add derivative of the rest
+              var rest = CreateSubConcatenation(expression, i + 1);
+              var calculatedRest = CalculateConcatenation(rest, symbol);
+              if (calculatedRest != null)
+              {
+                alternation.AddUnique(calculatedRest);
+              }
+
+              return ReturnAlternationResult(alternation);
+            }
+          }
+          else if (postfixExpr.Operator == "*")
+          {
+            // a* with respect to other symbol is derivative of the rest
+            if (i + 1 >= expression.Elements.Count)
+              return ReturnAlternationResult(alternation);
+
+            var rest = CreateSubConcatenation(expression, i + 1);
+            var result = CalculateConcatenation(rest, symbol);
             if (result != null)
             {
-              Alter.AddUnique(result);
+              alternation.AddUnique(result);
             }
-            return returnAlter(Alter);
+
+            return ReturnAlternationResult(alternation);
           }
           else
           {
-            return returnAlter(Alter);
+            return ReturnAlternationResult(alternation);
           }
         }
-        //check the removal of the second condition
-        else if (Ex is CompoundExpression _CEx)
+        else if (element is CompoundExpression nestedCompound)
         {
-          Ex = new PostfixExpression(_CEx, "1");
+          // Convert to postfix with operator "1" for consistent handling
+          element = new PostfixExpression(nestedCompound, "1");
         }
-        if (Ex is PostfixExpression CEx && CEx.Base is CompoundExpression)
-        {
-          var nestedResult = calcNestedCompoundEx(CEx, alphabet);
-          // limit if there is none left
-          if (nestedResult is not null)
-          {
-            //add the rest
-            if (nestedResult is Symbol s && s.Name == "λ" && subConcatEx(expression, i + 1).Elements.Count != 0)
-            {
-              nestedResult = subConcatEx(expression, i + 1);
-            }
-            else if (expression.Elements.Count == 1)
-            {
 
-            }
-            else if (nestedResult is CompoundExpression compEx)
+        if (element is PostfixExpression postfixCompoundExpr && postfixCompoundExpr.Base is CompoundExpression)
+        {
+          var nestedResult = CalculateNestedCompoundExpression(postfixCompoundExpr, symbol);
+
+          if (nestedResult != null)
+          {
+            // Process the result depending on its type
+            if (nestedResult is Symbol resultSymbol && resultSymbol.Name == "λ" &&
+                CreateSubConcatenation(expression, i + 1).Elements.Count != 0)
             {
-              if (compEx.Type == CompoundExpression.CompoundType.Concatenation)
+              nestedResult = CreateSubConcatenation(expression, i + 1);
+            }
+            else if (expression.Elements.Count > 1)
+            {
+              // Add the rest of the expression to the result
+              if (nestedResult is CompoundExpression resultCompound)
               {
-                for (int j = i + 1; j < expression.Elements.Count; j++)
-                  compEx.Add(expression.Elements.ElementAt(j));
+                AppendRemainingElements(resultCompound, expression, i + 1);
               }
               else
               {
-                for (int k = 0; k < compEx.Elements.Count; k++)
+                var temp = new CompoundExpression(CompoundType.Concatenation);
+                temp.Add(nestedResult);
+                for (int j = i + 1; j < expression.Elements.Count; j++)
                 {
-                  var ex = compEx.Elements.ElementAt(k);
-                  if (ex is CompoundExpression cex && cex.Type == CompoundExpression.CompoundType.Concatenation)
-                  {
-                    for (int j = i + 1; j < expression.Elements.Count; j++)
-                      cex.Add(expression.Elements.ElementAt(j));
-                  }
-                  else
-                  {
-                    var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-                    temp.Add(ex);
-                    for (int j = i + 1; j < expression.Elements.Count; j++)
-                      temp.Add(expression.Elements.ElementAt(j));
-                    compEx.Elements[k] = temp;
-                  }
+                  temp.Add(expression.Elements[j]);
                 }
+                nestedResult = temp;
               }
             }
-            else
+
+            alternation.AddUnique(nestedResult);
+            if (postfixCompoundExpr.Operator == "^+" || postfixCompoundExpr.Operator == "1")
             {
-              var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-              temp.Add(nestedResult);
-              for (int j = i + 1; j < expression.Elements.Count; j++)
-                temp.Add(expression.Elements.ElementAt(j));
-              nestedResult = temp;
-            }
-            //return the results
-            Alter.AddUnique(nestedResult);
-            if (CEx.Operator == "^+" || CEx.Operator == "1")
+              // Short-circuit for non-repeating operators
               break;
+            }
           }
         }
       }
 
-      return returnAlter(Alter);
+      return ReturnAlternationResult(alternation);
     }
-    private Expression? returnAlter(CompoundExpression expr)
+
+    /// <summary>
+    /// Appends remaining elements from source expression to the target compound expression.
+    /// </summary>
+    private void AppendRemainingElements(CompoundExpression target, CompoundExpression source, int startIndex)
     {
-      if (expr.Elements.Count > 0)
+      if (target.Type == CompoundType.Concatenation)
       {
-        if (expr.Elements.Count == 1)
+        for (int j = startIndex; j < source.Elements.Count; j++)
         {
-          return expr.Elements.First();
+          target.Add(source.Elements[j]);
         }
-        return expr;
+      }
+      else if (target.Type == CompoundType.Alternation)
+      {
+        for (int i = 0; i < target.Elements.Count; i++)
+        {
+          var element = target.Elements[i];
+          if (element is CompoundExpression concat && concat.Type == CompoundType.Concatenation)
+          {
+            for (int j = startIndex; j < source.Elements.Count; j++)
+            {
+              concat.Add(source.Elements[j]);
+            }
+          }
+          else
+          {
+            var temp = new CompoundExpression(CompoundType.Concatenation);
+            temp.Add(element);
+            for (int j = startIndex; j < source.Elements.Count; j++)
+            {
+              temp.Add(source.Elements[j]);
+            }
+            target.Elements[i] = temp;
+          }
+        }
+      }
+    }
+
+    /// <summary>
+    /// Helper method to handle whether to return alternation or null.
+    /// </summary>
+    private Expression? ReturnAlternationResult(CompoundExpression expr)
+    {
+      return expr.Elements.Count switch
+      {
+        0 => null,
+        1 => expr.Elements.First(),
+        _ => expr
+      };
+    }
+
+    /// <summary>
+    /// Calculates derivatives for nested compound expressions with postfix operators.
+    /// </summary>
+    private Expression? CalculateNestedCompoundExpression(PostfixExpression expression, char symbol)
+    {
+      var baseCompound = expression.Base as CompoundExpression;
+      if (baseCompound == null)
+      {
+        return null;
+      }
+
+      Expression result = null;
+
+      if (baseCompound.Type == CompoundType.Concatenation)
+      {
+        result = CalculateConcatenation(baseCompound, symbol);
+      }
+      else if (baseCompound.Type == CompoundType.Alternation)
+      {
+        result = CalculateAlternation(baseCompound, symbol);
+      }
+
+      if (result == null)
+      {
+        return null;
+      }
+
+      // Handle case where operator is "1" (just one instance)
+      if (expression.Operator == "1")
+      {
+        return result;
+      }
+
+      // Apply postfix operator to the result
+      var newExpression = new PostfixExpression(expression.Base, "*");
+
+      if (result is CompoundExpression resultCompound)
+      {
+        if (resultCompound.Type == CompoundType.Concatenation)
+        {
+          resultCompound.Add(newExpression);
+        }
+        else if (resultCompound.Type == CompoundType.Alternation)
+        {
+          for (int i = 0; i < resultCompound.Elements.Count; i++)
+          {
+            var element = resultCompound.Elements[i];
+            if (element is CompoundExpression concatElement && concatElement.Type == CompoundType.Concatenation)
+            {
+              concatElement.Add(newExpression);
+            }
+            else if (element is Symbol symbolElement && symbolElement.Name == "λ")
+            {
+              resultCompound.Elements[i] = newExpression;
+            }
+            else
+            {
+              var temp = new CompoundExpression(CompoundType.Concatenation);
+              temp.Add(element);
+              temp.Add(newExpression);
+              resultCompound.Elements[i] = temp;
+            }
+          }
+        }
+        return resultCompound;
       }
       else
-        return null;
-    }
-    private Expression? calcNestedCompoundEx(PostfixExpression _expression, char alphabet)
-    {
-      var expression = new PostfixExpression(_expression.Base, _expression.Operator);
-      var compEx = (CompoundExpression)expression.Base;
-      if (compEx.Type == CompoundExpression.CompoundType.Concatenation)
       {
-        var resutl = calcConcatenation(compEx, alphabet);
-
-        if (resutl is not null)
+        var temp = new CompoundExpression(CompoundType.Concatenation);
+        if (!(result is Symbol sym && sym.Name == "λ"))
         {
-          if (expression.Operator == "1")
-          {
-            return resutl;
-          }
-          //add the rest
-          expression.Operator = "*";
-          if (resutl is CompoundExpression _compEx)
-          {
-            if (_compEx.Type == CompoundExpression.CompoundType.Concatenation)
-            {
-              _compEx.Add(expression);
-            }
-            else
-            {
-              for (int k = 0; k < _compEx.Elements.Count; k++)
-              {
-                var ex = _compEx.Elements.ElementAt(k);
-                if (ex is CompoundExpression cex && cex.Type == CompoundExpression.CompoundType.Concatenation)
-                {
-                  cex.Add(expression);
-                  _compEx.Elements[k] = cex;
-                }
-                else
-                {
-                  Console.WriteLine("this should not be possible bu anyway!!!");
-                  var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-                  temp.Add(ex);
-                  temp.Add(expression);
-                  ex = temp;
-                }
-              }
-            }
-            return _compEx;
-          }
-          else
-          {
-            Console.WriteLine("this should not be possible bu anyway!!! 2");
-            var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-            temp.Add(resutl);
-            temp.Add(expression);
-            resutl = temp;
-          }
-          //return the results
-          return resutl;
+          temp.Add(result);
         }
+        temp.Add(newExpression);
+        return temp;
       }
-      else if (compEx.Type == CompoundExpression.CompoundType.Alternation)
-      {
-        var resutl = calcAlternation(compEx, alphabet);
-        if (resutl is not null)
-        {
-          if (expression.Operator == "1")
-          {
-            return resutl;
-          }
-          //add the rest
-          expression.Operator = "*";
-          if (resutl is CompoundExpression _compEx)
-          {
-            if (_compEx.Type == CompoundExpression.CompoundType.Concatenation)
-            {
-              _compEx.Add(expression);
-              return _compEx;
-            }
-            else
-            {
-              for (int k = 0; k < _compEx.Elements.Count; k++)
-              {
-                var ex = _compEx.Elements.ElementAt(k);
-                if (ex is CompoundExpression cex && cex.Type == CompoundExpression.CompoundType.Concatenation)
-                {
-                  cex.Add(expression);
-                  _compEx.Elements[k] = cex;
-                }
-                else
-                {
-                  if (ex is Symbol sym && sym.Name == "λ")
-                  {
-                    _compEx.Elements[k] = expression;
-                  }
-                  else
-                  {
-                    var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-                    temp.Add(ex);
-                    temp.Add(expression);
-                    _compEx.Elements[k] = temp;
-                  }
-                }
-              }
-              return _compEx;
-            }
-          }
-          else
-          {
-            var temp = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-            if (resutl is Symbol sym && sym.Name != "λ")
-            {
-              temp.Add(resutl);
-            }
-            temp.Add(expression);
-            resutl = temp;
-          }
-          //return the results
-          return resutl;
-        }
-      }
-      return null;
-      // if (symbol) not computed here?
     }
 
-    // sublist of concatenation compoundEx
-    private CompoundExpression subConcatEx(CompoundExpression expression, int i)
+    /// <summary>
+    /// Creates a sublist of concatenation from the given expression starting at index i.
+    /// </summary>
+    private CompoundExpression CreateSubConcatenation(CompoundExpression expression, int startIndex)
     {
-      var concat = new CompoundExpression(CompoundExpression.CompoundType.Concatenation);
-      for (int k = i; k < expression.Elements.Count; k++)
+      var concat = new CompoundExpression(CompoundType.Concatenation);
+      for (int k = startIndex; k < expression.Elements.Count; k++)
       {
-        concat.Add(expression.Elements.ElementAt(k));
+        concat.Add(expression.Elements[k]);
       }
       return concat;
     }
 
-    private Variable AddUnique(Expression expr)
+    /// <summary>
+    /// Adds a variable with the given expression if it doesn't exist already.
+    /// </summary>
+    private Variable AddUniqueVariable(Expression expr)
     {
-
-      foreach (var item in Variables)
+      // Check for existing variables with equivalent expressions
+      foreach (var variable in _variables)
       {
-        // Handle alternation compound expressions comparison (order doesn't matter)
-        if (item.expr is CompoundExpression CEx1 && CEx1.Type == CompoundType.Alternation &&
-            expr is CompoundExpression CEx2 && CEx2.Type == CompoundType.Alternation)
+        if (AreExpressionsEquivalent(variable.Expression, expr))
         {
-          // First check if they have the same number of elements
-          if (CEx1.Elements.Count == CEx2.Elements.Count)
-          {
-            bool allElementsMatch = true;
-
-            // Check if every element in CEx1 exists in CEx2
-            foreach (var element in CEx1.Elements)
-            {
-              if (!CEx2.Elements.Any(e => e.Equals(element)))
-              {
-                allElementsMatch = false;
-                break;
-              }
-            }
-
-            // Check if every element in CEx2 exists in CEx1
-            foreach (var element in CEx2.Elements)
-            {
-              if (!CEx1.Elements.Any(e => e.Equals(element)))
-              {
-                allElementsMatch = false;
-                break;
-              }
-            }
-
-            if (allElementsMatch)
-            {
-              return item;
-            }
-          }
-        }
-        // Simple equality comparison for other expression types
-        else if (item.expr.Equals(expr))
-        {
-          return item;
+          return variable;
         }
       }
 
-
-      if (Variables.Count == 0 || Variables.Last().Name == 'S')
+      // Create a new variable with the next available name
+      char name;
+      if (_variables.Count == 0 || _variables.Last().Name == 'S')
       {
-        Variables.Add(new Variable('A', expr));
-        return Variables.Last();
+        name = 'A';
       }
       else
       {
-        char name = Variables.Last().Name;
-        Variables.Add(new Variable((char)(name + 1), expr));
-        return Variables.Last();
+        name = (char)(_variables.Last().Name + 1);
       }
 
+      var newVariable = new Variable(name, expr);
+      _variables.Add(newVariable);
+      return newVariable;
+    }
+
+    /// <summary>
+    /// Determines if two expressions are structurally equivalent.
+    /// </summary>
+    private bool AreExpressionsEquivalent(Expression expr1, Expression expr2)
+    {
+      // Handle alternation compound expressions comparison (order doesn't matter)
+      if (expr1 is CompoundExpression compExpr1 && compExpr1.Type == CompoundType.Alternation &&
+          expr2 is CompoundExpression compExpr2 && compExpr2.Type == CompoundType.Alternation)
+      {
+        // First check if they have the same number of elements
+        if (compExpr1.Elements.Count == compExpr2.Elements.Count)
+        {
+          bool allElementsMatch = true;
+
+          // Check if every element in expr1 exists in expr2
+          foreach (var element in compExpr1.Elements)
+          {
+            if (!compExpr2.Elements.Any(e => e.Equals(element)))
+            {
+              allElementsMatch = false;
+              break;
+            }
+          }
+
+          // Check if every element in expr2 exists in expr1
+          foreach (var element in compExpr2.Elements)
+          {
+            if (!compExpr1.Elements.Any(e => e.Equals(element)))
+            {
+              allElementsMatch = false;
+              break;
+            }
+          }
+
+          return allElementsMatch;
+        }
+      }
+
+      // Simple equality comparison for other expression types
+      return expr1.Equals(expr2);
     }
   }
-
 }
