@@ -3,6 +3,7 @@ using generate_Grammar.Variables;
 using System.ComponentModel.Design;
 using System.Diagnostics.Metrics;
 using System.Net.Http.Headers;
+using System.Reflection.Metadata;
 using System.Xml.XPath;
 using static generate_Grammar.Expressions.CompoundExpression;
 
@@ -31,15 +32,28 @@ namespace generate_Grammar.GrammarCalculation
       var Var = Variables.FirstOrDefault(x => x.prosced == false);
       while (Var != null)
       {
+        if (Var.CanGenerateLambda())
+        {
+          Var.addGrammar(null, 'λ');
+        }
         calculateVariable(Var);
         Var = Variables.FirstOrDefault(y => y.prosced == false);
-        Console.WriteLine();
       }
-      Console.WriteLine("the final results are :");
+    }
+    public void printVariables()
+    {
       foreach (var item in Variables)
       {
         Console.Write(item.Name + " : ");
         Console.WriteLine(item.expr);
+      }
+    }
+    public void printGrammar()
+    {
+      foreach (var item in Variables)
+      {
+        item.PrintGrammar();
+        Console.WriteLine();
       }
     }
 
@@ -53,11 +67,15 @@ namespace generate_Grammar.GrammarCalculation
           for (int i = 0; i < _alphabet.Count; i++)
           {
             var result = calcAlternation(compoundExpression, _alphabet.ElementAt(i));
-            if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
-            {
-              Console.Write(Var.Name + "->");
-              Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
-            }
+            if (result != null)
+              if (result is CompoundExpression c1)
+              {
+                if (c1.Elements.Count > 0)
+                  Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
+              }
+              else
+                Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
+
           }
         }
         else if (compoundExpression.Type == CompoundExpression.CompoundType.Concatenation)
@@ -65,12 +83,14 @@ namespace generate_Grammar.GrammarCalculation
           for (int i = 0; i < _alphabet.Count; i++)
           {
             var result = calcConcatenation(compoundExpression, _alphabet.ElementAt(i));
-            if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
-            {
-              Console.Write(Var.Name + "->");
-              Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
-            }
-
+            if (result != null)
+              if (result is CompoundExpression c1)
+              {
+                if (c1.Elements.Count > 0)
+                  Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
+              }
+              else
+                Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
           }
         }
       }
@@ -79,16 +99,23 @@ namespace generate_Grammar.GrammarCalculation
         for (int i = 0; i < _alphabet.Count; i++)
         {
           var result = calcNestedCompoundEx(postfixEx, _alphabet.ElementAt(i));
-          if (result != null && result is CompoundExpression c1 && c1.Elements.Count > 0)
-          {
-            Console.Write(Var.Name + "->");
-            Console.WriteLine(_alphabet.ElementAt(i).ToString() + AddUnique(result).Name.ToString());
-          }
+          if (result != null)
+            if (result is CompoundExpression c1)
+            {
+              if (c1.Elements.Count > 0)
+                Var.addGrammar(AddUnique(result), _alphabet.ElementAt(i));
+            }
+            else
+              Var.addGrammar(null, _alphabet.ElementAt(i));// if here its probably lambda
         }
+      }
+      else
+      {
+        Var.addGrammar(Var, _alphabet.ElementAt(0));
       }
       Var.prosced = true;
     }
-    public Expression? calcAlternation(CompoundExpression expression, char alphabet)
+    private Expression? calcAlternation(CompoundExpression expression, char alphabet)
     {
       var Alter = new CompoundExpression(CompoundExpression.CompoundType.Alternation);
       foreach (var Ex in expression.Elements)
@@ -125,7 +152,7 @@ namespace generate_Grammar.GrammarCalculation
       }
       return null;
     }
-    public Expression? calcConcatenation(CompoundExpression expression, char alphabet)
+    private Expression? calcConcatenation(CompoundExpression expression, char alphabet)
     {
       var Alter = new CompoundExpression(CompoundExpression.CompoundType.Alternation);
       for (int i = 0; i < expression.Elements.Count; i++)
@@ -135,16 +162,16 @@ namespace generate_Grammar.GrammarCalculation
         {
           if (symbol.Name[0] == alphabet)
           {
-            if (i + 1 >= expression.Elements.Count)
+            if (i + 1 >= expression.Elements.Count) // check for the rest of expression
               if (Alter.Elements.Count > 0)
               {
                 Alter.AddUnique(new Symbol("λ"));
-                return Alter;
+                return returnAlter(Alter);
               }
               else return new Symbol("λ");
             return subConcatEx(expression, i + 1);
           }
-          if (Alter.Elements.Count > 0) return Alter; else return null;
+          return returnAlter(Alter);
         }
         else if (Ex is PostfixExpression PEx && PEx.Base is Symbol symbol1)
         {
@@ -152,17 +179,23 @@ namespace generate_Grammar.GrammarCalculation
           {
             if (PEx.Operator == "^+")
             {
-              if (i + 1 > expression.Elements.Count)
-                return new PostfixExpression(PEx.Base, "*");
+              if (i + 1 > expression.Elements.Count) // if there is no rest of the expression
+              {
+                Alter.AddUnique(new PostfixExpression(PEx.Base, "*"));
+                return returnAlter(Alter);
+              }
               var subEx = subConcatEx(expression, i + 1);
               subEx.Insert(new PostfixExpression(PEx.Base, "*"));
               Alter.AddUnique(subEx);
-              return Alter;
+              return returnAlter(Alter);
             }
             if (PEx.Operator == "*")
             {
-              if (i + 1 >= expression.Elements.Count)
-                return new PostfixExpression(PEx.Base, "*");
+              if (i + 1 >= expression.Elements.Count) // check if there are no rest of the equation
+              {
+                Alter.AddUnique(new PostfixExpression(PEx.Base, "*"));
+                return returnAlter(Alter);
+              }
               var subEx = subConcatEx(expression, i);
               Alter.AddUnique(subEx);
               // calculate the rest
@@ -172,29 +205,25 @@ namespace generate_Grammar.GrammarCalculation
               {
                 Alter.AddUnique(calculatedRest);
               }
-              if (Alter.Elements.Count == 1)
-              {
-                return Alter.Elements.First();
-              }
-              return Alter;
+              return returnAlter(Alter);
             }
           }
           else if (PEx.Operator == "*")
           {
             // calculate the rest
             if (i + 1 >= expression.Elements.Count)
-              if (Alter.Elements.Count > 0) return Alter; else return null;
+              return returnAlter(Alter);
             var rest = subConcatEx(expression, i + 1);
             var result = calcConcatenation(rest, alphabet);
             if (result != null)
             {
               Alter.AddUnique(result);
             }
-            return Alter;
+            return returnAlter(Alter);
           }
           else
           {
-            if (Alter.Elements.Count > 0) return Alter; else return null;
+            return returnAlter(Alter);
           }
         }
         //check the removal of the second condition
@@ -202,14 +231,18 @@ namespace generate_Grammar.GrammarCalculation
         {
           Ex = new PostfixExpression(_CEx, "1");
         }
-        if ((Ex is PostfixExpression CEx && CEx.Base is CompoundExpression))
+        if (Ex is PostfixExpression CEx && CEx.Base is CompoundExpression)
         {
           var nestedResult = calcNestedCompoundEx(CEx, alphabet);
           // limit if there is none left
           if (nestedResult is not null)
           {
             //add the rest
-            if (expression.Elements.Count == 1)
+            if (nestedResult is Symbol s && s.Name == "λ" && subConcatEx(expression, i + 1).Elements.Count != 0)
+            {
+              nestedResult = subConcatEx(expression, i + 1);
+            }
+            else if (expression.Elements.Count == 1)
             {
 
             }
@@ -251,23 +284,28 @@ namespace generate_Grammar.GrammarCalculation
             }
             //return the results
             Alter.AddUnique(nestedResult);
-            if (CEx.Operator == "^+")
+            if (CEx.Operator == "^+" || CEx.Operator == "1")
               break;
           }
         }
       }
-      if (Alter.Elements.Count > 0)
+
+      return returnAlter(Alter);
+    }
+    private Expression? returnAlter(CompoundExpression expr)
+    {
+      if (expr.Elements.Count > 0)
       {
-        if (Alter.Elements.Count == 1)
+        if (expr.Elements.Count == 1)
         {
-          return Alter.Elements.First();
+          return expr.Elements.First();
         }
-        return Alter;
+        return expr;
       }
       else
         return null;
     }
-    public Expression? calcNestedCompoundEx(PostfixExpression _expression, char alphabet)
+    private Expression? calcNestedCompoundEx(PostfixExpression _expression, char alphabet)
     {
       var expression = new PostfixExpression(_expression.Base, _expression.Operator);
       var compEx = (CompoundExpression)expression.Base;
