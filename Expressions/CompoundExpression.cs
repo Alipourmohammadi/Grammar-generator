@@ -104,6 +104,7 @@ namespace generate_Grammar.Expressions
       return Elements.FirstOrDefault() ?? new Symbol("λ"); // Return lambda as fallback
     }
 
+
     protected override string ToStringImpl()
     {
       if (Elements.Count == 0)
@@ -114,11 +115,105 @@ namespace generate_Grammar.Expressions
       for (int i = 0; i < Elements.Count; i++)
       {
         if (i > 0 && Type == CompoundType.Alternation)
-          sb.Append("+");
+          sb.Append("U");
         sb.Append(Elements[i].ToString());
       }
 
       return sb.ToString();
     }
+
+
+    /// <summary>
+    /// Determines whether this compound expression is equal to another expression.
+    /// </summary>
+    /// <param name="other">The expression to compare with</param>
+    /// <returns>True if the expressions are equal, false otherwise</returns>
+    public override bool Equals(Expression other)
+    {
+      return Equals(other as CompoundExpression);
+    }
+
+    /// <summary>
+    /// Determines whether this compound expression is equal to another compound expression.
+    /// </summary>
+    /// <param name="other">The compound expression to compare with</param>
+    /// <returns>True if the compound expressions are equal, false otherwise</returns>
+    public bool Equals(CompoundExpression other)
+    {
+      if (other is null) return false;
+      if (ReferenceEquals(this, other)) return true;
+
+      if (Type != other.Type || Elements.Count != other.Elements.Count)
+        return false;
+
+      // For alternation, order doesn't matter
+      if (Type == CompoundType.Alternation)
+      {
+        // Check if both expressions contain the same elements regardless of order
+        return !Elements.Except(other.Elements, new ExpressionEqualityComparer()).Any() &&
+               !other.Elements.Except(Elements, new ExpressionEqualityComparer()).Any();
+      }
+      else
+      {
+        // For concatenation, order matters
+        for (int i = 0; i < Elements.Count; i++)
+        {
+          if (!Elements[i].Equals(other.Elements[i]))
+            return false;
+        }
+        return true;
+      }
+    }
+
+    /// <summary>
+    /// Returns a hash code for this compound expression.
+    /// </summary>
+    /// <returns>A hash code</returns>
+    public override int GetHashCode()
+    {
+      unchecked
+      {
+        int hash = 17;
+        hash = hash * 23 + Type.GetHashCode();
+
+        if (Type == CompoundType.Alternation)
+        {
+          // For alternation, order doesn't matter, so use XOR
+          foreach (var element in Elements)
+          {
+            hash ^= element.GetHashCode();
+          }
+        }
+        else
+        {
+          // For concatenation, order matters
+          foreach (var element in Elements)
+          {
+            hash = hash * 23 + element.GetHashCode();
+          }
+        }
+
+        return hash;
+      }
+    }
   }
+
+  /// <summary>
+  /// Equality comparer for expressions used in collection operations
+  /// </summary>
+  internal class ExpressionEqualityComparer : IEqualityComparer<Expression>
+  {
+    public bool Equals(Expression x, Expression y)
+    {
+      if (x == null && y == null) return true;
+      if (x == null || y == null) return false;
+      return x.Equals(y);
+    }
+
+    public int GetHashCode(Expression obj)
+    {
+      return obj?.GetHashCode() ?? 0;
+    }
+  }
+
 }

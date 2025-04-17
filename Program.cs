@@ -10,15 +10,18 @@ namespace RegexExpressionParser
     static void Main(string[] args)
     {
       // Example usage
-      //string equation1 = "a*c+a*a";
-      //string equation1 = "a*(c+b)+a";
-      //string equation1 = "b*a*(a^+b*c*)*";
-      //string equation1 = "(ab^++c*b*a^+)*a*c";
-      //string equation1 = "(a^+b^++ac*)^++(b*a^++c^+b*)*b";
+      // U is for uniuon / ∪
+      //string equation1 = "a*cUa*a";
+      //string equation1 = "a*(cUb)Ua";
+      //string equation1 = "b*a*(a+b*c*)*";
+      //string equation1 = "(ab+Uc*b*a+)*a*c";
+      string equation1 = "(a+b+Uac*)+U(b*a+Uc+b*)*b";
       //string equation1 = "abcd";
-      string equation1 = "(a+ab*)^+(ca+b)*";
-      //string equation1 = "(aa+b)(ab+bb)*";
-      //string equation1 = "(a+ab^+)*(bc*+c)^+";
+      //string equation1 = "(aUab*)+(caUb)*";
+      //string equation1 = "(aaUb)(abUbb)*";
+      //string equation1 = *"(aUab+)*(bc*Uc)+";
+      //string equation1 = "a*b*c+";
+
 
       try
       {

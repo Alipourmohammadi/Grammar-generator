@@ -247,9 +247,9 @@ namespace generate_Grammar.GrammarCalculation
           // Handle postfix expressions with symbol base
           if (baseSymbol.Name[0] == symbol)
           {
-            if (postfixExpr.Operator == "^+")
+            if (postfixExpr.Operator == "+")
             {
-              // a^+ derivative with respect to 'a' is a*
+              // a+ derivative with respect to 'a' is a*
               if (i + 1 >= expression.Elements.Count)
               {
                 alternation.AddUnique(new PostfixExpression(postfixExpr.Base, "*"));
@@ -344,7 +344,7 @@ namespace generate_Grammar.GrammarCalculation
             }
 
             alternation.AddUnique(nestedResult);
-            if (postfixCompoundExpr.Operator == "^+" || postfixCompoundExpr.Operator == "1")
+            if (postfixCompoundExpr.Operator == "+" || postfixCompoundExpr.Operator == "1")
             {
               // Short-circuit for non-repeating operators
               break;

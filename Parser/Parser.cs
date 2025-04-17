@@ -77,10 +77,10 @@ namespace generate_Grammar.Parser
     {
       Expression left = ParseTerm();
 
-      while (_position < _input.Length && Peek() == '+')
+      while (_position < _input.Length && Peek() == 'U')
       {
-        // Found a '+', so this is an alternation/sum
-        Consume(); // consume '+'
+        // Found a 'U', so this is an alternation/sum
+        Consume(); // consume 'U'
 
         CompoundExpression alternation;
         if (left is CompoundExpression compoundLeft && compoundLeft.Type == CompoundExpression.CompoundType.Alternation)
@@ -112,7 +112,7 @@ namespace generate_Grammar.Parser
       // Check for concatenation (implicit sequencing)
       while (_position < _input.Length &&
             (char.IsLetterOrDigit(Peek()) || Peek() == '(') &&
-            Peek() != '+')
+            Peek() != 'U')
       {
         CompoundExpression concat;
         if (result is CompoundExpression compoundResult && compoundResult.Type == CompoundExpression.CompoundType.Concatenation)
@@ -167,31 +167,10 @@ namespace generate_Grammar.Parser
           Consume(); // consume '*'
           expr = new PostfixExpression(expr, "*");
         }
-        else if (Peek() == '^')
+        else if (Peek() == '+')
         {
-          Consume(); // consume '^'
-
-          // Check if there's a '+' after the '^'
-          if (_position < _input.Length && Peek() == '+')
-          {
-            Consume(); // consume '+' as part of '^+' operator
-            expr = new PostfixExpression(expr, "^+");
-          }
-          else if (_position < _input.Length && char.IsNumber(Peek()))
-          {
-            // Get all digits of the number
-            StringBuilder numberBuilder = new StringBuilder();
-            while (_position < _input.Length && char.IsNumber(Peek()))
-            {
-              numberBuilder.Append(ConsumeChar());
-            }
-            expr = new PostfixExpression(expr, "^" + numberBuilder.ToString());
-          }
-          else
-          {
-            // Just '^' with no number or '+' after it is probably an error
-            throw new ParseException("Expected a number or '+' after '^'", _position);
-          }
+          Consume(); // consume '+'
+          expr = new PostfixExpression(expr, "+");
         }
         else
         {
