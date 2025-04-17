@@ -1,10 +1,10 @@
 ﻿# Regular Expression Grammar Generator
 
-A C# application that converts regular expressions into corresponding context-free grammars (CFGs). This tool parses regular expressions and generates equivalent grammar rules, which can be useful for language processing, compiler design, and theoretical computer science applications.
+A C# application that converts regular expressions into corresponding regular grammar. This tool parses regular expressions and generates equivalent grammar rules, which can be useful for language processing, compiler design, and theoretical computer science applications.
 
 ## Overview
 
-This project implements an algorithm to transform regular expressions into context-free grammars by:
+This project implements an algorithm to transform regular expressions into regular grammar by:
 1. Parsing regular expressions into an abstract syntax tree
 2. Calculating grammar productions for each expression component
 3. Generating a complete set of grammar rules that recognize the same language as the input regular expression
@@ -13,10 +13,9 @@ This project implements an algorithm to transform regular expressions into conte
 
 - Supports standard regular expression operators:
   - Concatenation (implicit sequencing like `ab`)
-  - Alternation (sum/choice like `a+b`)
+  - Alternation (sum/choice like `aUb`)
   - Kleene star (`*` for zero or more repetitions)
-  - One or more repetitions (`^+`)
-  - Specific repetition counts (`^n` where n is a number)
+  - One or more repetitions (`+`)
 - Handles complex nested expressions with parentheses
 - Generates non-redundant grammar variables 
 - Proper handling of lambda (ε) transitions
@@ -29,7 +28,7 @@ The project is organized into several components:
 - `Expression`: Base abstract class for all expression types
 - `Symbol`: Represents a terminal symbol or atomic element
 - `CompoundExpression`: Handles concatenation and alternation operations
-- `PostfixExpression`: Manages postfix operators like `*` and `^+`
+- `PostfixExpression`: Manages postfix operators like `*` and `+`
 
 ### Parsing and Grammar Generation
 - `Parser`: Converts regular expression strings into expression objects
@@ -40,7 +39,7 @@ The project is organized into several components:
 
 ```csharp
 // Create a parser for your regular expression
-Parser parser = new Parser("a*(c+b)+a");
+Parser parser = new Parser("a*(cUb)Ua");
 
 // Parse the expression
 Expression expr = parser.Parse();
@@ -55,14 +54,14 @@ generator.printGrammar();
 
 ## Example
 
-For the regular expression `a*(c+b)+a`, the program will:
+For the regular expression `a*(cUb)Ua`, the program will:
 1. Parse it into an abstract syntax tree
 2. Calculate grammar productions for each sub-expression
 3. Output a context-free grammar that recognizes the same language
 
 Output:
 ```
-Parsed equation : a*(c+b)+a
+Parsed equation : a*(cUb)Ua
 
 Generated Grammar:
 S -> a|aA|aC
