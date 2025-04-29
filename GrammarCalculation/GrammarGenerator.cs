@@ -236,7 +236,7 @@ namespace generate_Grammar.GrammarCalculation
             }
 
             // Otherwise, return the rest of the concatenation
-            return CreateSubConcatenation(expression, i + 1);
+            alternation.AddUnique(CreateSubConcatenation(expression, i + 1));
           }
 
           // No match for this symbol
@@ -347,7 +347,11 @@ namespace generate_Grammar.GrammarCalculation
             if (postfixCompoundExpr.Operator == "+" || postfixCompoundExpr.Operator == "1")
             {
               // Short-circuit for non-repeating operators
-              break;
+              Variable vari = new Variable('T', postfixCompoundExpr.Base);
+              if (!vari.CanGenerateLambda())
+              {
+                break;
+              }
             }
           }
         }

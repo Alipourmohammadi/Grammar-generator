@@ -15,12 +15,16 @@ namespace RegexExpressionParser
       //string equation1 = "a*(cUb)Ua";
       //string equation1 = "b*a*(a+b*c*)*";
       //string equation1 = "(ab+Uc*b*a+)*a*c";
-      string equation1 = "(a+b+Uac*)+U(b*a+Uc+b*)*b";
+      //string equation1 = "(a+b+Uac*)+U(b*a+Uc+b*)*b";
       //string equation1 = "abcd";
       //string equation1 = "(aUab*)+(caUb)*";
       //string equation1 = "(aaUb)(abUbb)*";
       //string equation1 = *"(aUab+)*(bc*Uc)+";
       //string equation1 = "a*b*c+";
+      //string equation1 = "(aU(b+c)+)*";
+      string equation1 = "(a*Ub*)+ab";
+
+
 
 
       try
