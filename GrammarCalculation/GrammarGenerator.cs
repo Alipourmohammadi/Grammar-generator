@@ -508,6 +508,10 @@ namespace generate_Grammar.GrammarCalculation
     private Variable AddUniqueVariable(Expression expr)
     {
       // Check for existing variables with equivalent expressions
+      if (expr is CompoundExpression ex && ex.Elements.Count ==1)
+      {
+        expr = ex.Elements.ElementAt(0);
+      }
       foreach (var variable in _variables)
       {
         if (AreExpressionsEquivalent(variable.Expression, expr))

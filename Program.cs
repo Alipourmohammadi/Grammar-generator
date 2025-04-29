@@ -21,8 +21,8 @@ namespace RegexExpressionParser
       //string equation1 = "(aaUb)(abUbb)*";
       //string equation1 = *"(aUab+)*(bc*Uc)+";
       //string equation1 = "a*b*c+";
-      //string equation1 = "(aU(b+c)+)*";
-      string equation1 = "(a*Ub*)+ab";
+      string equation1 = "(aU(b+c)+)*";
+      //string equation1 = "(a*Ub*)+ab";
 
 
 
